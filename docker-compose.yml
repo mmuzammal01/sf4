@@ -1,0 +1,79 @@
+version: '3.3'
+
+networks:
+  default:
+    external:
+      name: sf4
+
+services:
+
+  nginx:
+    container_name: sf4_nginx
+    build:
+      context: ./
+      dockerfile: docker/nginx/Dockerfile
+    restart: "no"
+    ports:
+      - "8081:80"
+    volumes:
+      - ./app:/app
+    depends_on:
+      - php
+      - mysql
+      - redis
+    labels:
+      - "traefik.frontend.rule=PathPrefix:/api/v2/testapi1,/api/v2/testapi2"
+    networks:
+      - default
+
+  php:
+    container_name: sf4_php
+    ports:
+      - "9000"
+      - "9001"
+    build:
+      context: ./
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - ./app:/app
+    working_dir: /app
+    command: /docker/init.sh
+    labels:
+      - "traefik.enable=false"
+    networks:
+      - default
+
+  mysql:
+    container_name: sf4_mysql
+    image: mysql:5.7
+    volumes:
+      - ./.data/mysql/datadir:/var/lib/mysql
+    #  - ./infra/docker/sql:/docker-entrypoint-initdb.d
+    ports:
+      - "3309:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_USER: sf4
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: sf4
+    networks:
+      - default
+
+  redis:
+    image: redis:alpine
+    container_name: sf4_redis
+    ports:
+      - "6379"
+    labels:
+      - "traefik.enable=false"
+
+  portainer:
+    container_name: sf4-portainer
+    image: portainer/portainer
+    volumes:
+      - ./.data:/data
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --admin-password "$$2y$$05$$arC5e4UbRPxfR68jaFnAAe1aL7C1U03pqfyQh49/9lB9lqFxLfBqS"
+    ports:
+      - "8888:9000"
